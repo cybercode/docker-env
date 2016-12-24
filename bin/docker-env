@@ -1,0 +1,134 @@
+#!/usr/bin/env ruby
+require 'gli'
+require 'version'
+
+include GLI::App
+
+DIR = File.expand_path(
+  '~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux'
+).freeze
+NAME    = 'Docker.qcow2'.freeze
+SYMLINK = "#{DIR}/#{NAME}".freeze
+
+program_desc 'Manage docker for mac qcow images'
+version Version.current(File.dirname(__FILE__))
+
+subcommand_option_handling :normal
+arguments :strict
+wrap_help_text :verbatim
+
+switch [:v, :verbose], desc: 'be more verbose'
+
+def current(options)
+  f = File.readlink(SYMLINK)
+  options[:verbose] ? f : f.split('.').last
+end
+
+def running?
+  if `ps ax` =~ %r[/[D]ocker.app]
+    $stderr.puts "Please quit Docker.app before using this script!"
+    exit 1
+  end
+end
+
+desc 'setup by moving Docker.qcow2 to "image_name" and linking back'
+arg 'image_name'
+command :init do |c|
+  c.action do |global_options,options,args|
+    running?
+    if File.symlink?(SYMLINK)
+      $stderr.puts "Already setup. Current is: #{current(global_options)}"
+      exit 1
+    end
+
+    file = "#{SYMLINK}.#{args[0]}"
+    File.rename(SYMLINK, file)
+    File.symlink(file, SYMLINK)
+
+    puts "Current is now: " + current(global_options)
+  end
+end
+
+desc 'list available qcow images (.../Docker.qcow2.{name})'
+command [:list, :ls] do |c|
+    c.action do |global_options,options,args|
+    puts Dir.glob("#{SYMLINK}.*").map { |f|
+      f.split('.').last
+    }
+  end
+end
+
+desc 'create new qcow "image"'
+long_desc <<EOF
+Removes current link so that the next time docker starts, it will create a
+    new empty image file. The (slightly long) steps to follow:
+
+        1. Stop Docker.app
+        2. Run this command (`docker-env new`)
+        3. Restart Docker.app
+        4. Stop Docker.app
+        5. Run `docker-env init {name}` to name the new image and
+           create the symlink
+EOF
+command :new do |c|
+  c.action do |global_options,options,args|
+    running?
+    if File.exist?(SYMLINK) || !File.symlink?(SYMLINK)
+      $stderr.puts "Please use '--force' to force delete current image!"
+      exit 1
+    end
+
+    begin
+      File.unlink(SYMLINK)
+    rescue Errno::ENOENT
+    end
+    help(["new"])
+  end
+end
+
+desc 'Delete "image"'
+arg 'image'
+command :rm do |c|
+  c.action do |global_options,options,args|
+    file = "#{SYMLINK}.#{args[0]}"
+    unless File.exist?(file)
+      $stderr.puts "Image #{args[0]} doesnt exist!"
+      exit 1
+    end
+    if File.readlink(SYMLINK) == file
+      $stderr.puts "Can't delete currently linked image"
+      exit 1
+    end
+
+    File.unlink(file)
+  end
+end
+
+desc 'Link to "image"'
+arg 'image'
+command :use do |c|
+  c.action do |global_options,options,args|
+    running?
+    file = "#{SYMLINK}.#{args[0]}"
+    File.exist?(file) or raise "Image #{file} does not exist"
+
+    begin
+      File.unlink(SYMLINK)
+    rescue Errno::ENOENT
+    end
+    File.symlink(file, SYMLINK)
+  end
+end
+
+desc 'Show current image'
+command :current do |c|
+  c.action do |global_options,options,args|
+    puts current(global_options)
+  end
+end
+
+on_error do |exception|
+  true
+end
+
+exit run(ARGV)
