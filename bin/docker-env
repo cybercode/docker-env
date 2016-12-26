@@ -25,16 +25,16 @@ def current(options)
 end
 
 def running?
-  if `ps ax` =~ %r[/[D]ocker.app]
-    $stderr.puts "Please quit Docker.app before using this script!"
-    exit 1
-  end
+  return unless `ps ax` =~ %r[/[D]ocker.app]
+
+  $stderr.puts 'Please quit Docker.app before using this script!'
+  exit 1
 end
 
 desc 'setup by moving Docker.qcow2 to "image_name" and linking back'
 arg 'image_name'
 command :init do |c|
-  c.action do |global_options,options,args|
+  c.action do |global_options, _options, args|
     running?
     if File.symlink?(SYMLINK)
       $stderr.puts "Already setup. Current is: #{current(global_options)}"
@@ -45,15 +45,17 @@ command :init do |c|
     File.rename(SYMLINK, file)
     File.symlink(file, SYMLINK)
 
-    puts "Current is now: " + current(global_options)
+    puts 'Current is now: ' + current(global_options)
   end
 end
 
 desc 'list available qcow images (.../Docker.qcow2.{name})'
 command [:list, :ls] do |c|
-    c.action do |global_options,options,args|
+  c.action do |global_options, _options, _args|
+    cur = current(global_options)
     puts Dir.glob("#{SYMLINK}.*").map { |f|
-      f.split('.').last
+      img = f.split('.').last
+      sprintf '%-2s%s', img == cur ? '*' : '', img
     }
   end
 end
@@ -71,7 +73,7 @@ Removes current link so that the next time docker starts, it will create a
            create the symlink
 EOF
 command :new do |c|
-  c.action do |global_options,options,args|
+  c.action do |_global_options, _options, _args|
     running?
     if File.exist?(SYMLINK) || !File.symlink?(SYMLINK)
       $stderr.puts "Please use '--force' to force delete current image!"
@@ -80,16 +82,16 @@ command :new do |c|
 
     begin
       File.unlink(SYMLINK)
-    rescue Errno::ENOENT
+    rescue Errno::ENOENT # rubocop:disable Lint/HandleExceptions
     end
-    help(["new"])
+    help(['new'])
   end
 end
 
 desc 'Delete "image"'
 arg 'image'
 command :rm do |c|
-  c.action do |global_options,options,args|
+  c.action do |_global_options, _options, args|
     file = "#{SYMLINK}.#{args[0]}"
     unless File.exist?(file)
       $stderr.puts "Image #{args[0]} doesnt exist!"
@@ -107,14 +109,14 @@ end
 desc 'Link to "image"'
 arg 'image'
 command :use do |c|
-  c.action do |global_options,options,args|
+  c.action do |_global_options, _options, args|
     running?
     file = "#{SYMLINK}.#{args[0]}"
     File.exist?(file) or raise "Image #{file} does not exist"
 
     begin
       File.unlink(SYMLINK)
-    rescue Errno::ENOENT
+    rescue Errno::ENOENT # rubocop:disable Lint/HandleExceptions
     end
     File.symlink(file, SYMLINK)
   end
@@ -122,12 +124,12 @@ end
 
 desc 'Show current image'
 command :current do |c|
-  c.action do |global_options,options,args|
+  c.action do |global_options, _options, args|
     puts current(global_options)
   end
 end
 
-on_error do |exception|
+on_error do |_exception|
   true
 end
 
