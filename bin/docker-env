@@ -18,24 +18,50 @@ arguments :strict
 wrap_help_text :verbatim
 
 switch [:v, :verbose], desc: 'be more verbose'
+switch [:k, :kill], desc: 'quit docker if it is running'
+switch [:r, :restart], desc: 'stop and start docker around command'
 
 def current(options)
   f = File.readlink(SYMLINK)
   options[:verbose] ? f : f.split('.').last
 end
 
-def running?
-  return unless `ps ax` =~ %r[/[D]ocker.app]
+def tell_docker(what, options)
+  cmd = %[osascript -e 'tell application "Docker" to #{what}']
+  $stderr.puts cmd if options[:verbose]
+  system(cmd)
+end
+
+def check_running
+  `ps ax` =~ %r[/[D]ocker.app]
+end
+
+def running?(options)
+  active = check_running
+  tell_docker('quit', options) if active && (options[:kill] || options[:restart])
+
+  # wait for docker to quit
+  while check_running do
+    $stderr.putc '.' if options[:verbose]
+    sleep 1
+  end
+  $stderr.puts ''
+
+  return active unless check_running
 
   $stderr.puts 'Please quit Docker.app before using this script!'
   exit 1
+end
+
+post do |global_options, _command, _options, _args|
+  tell_docker('activate', global_options) if global_options[:restart]
 end
 
 desc 'setup by moving Docker.qcow2 to "image_name" and linking back'
 arg 'image_name'
 command :init do |c|
   c.action do |global_options, _options, args|
-    running?
+    running?(global_options)
     if File.symlink?(SYMLINK)
       $stderr.puts "Already setup. Current is: #{current(global_options)}"
       exit 1
@@ -73,8 +99,8 @@ Removes current link so that the next time docker starts, it will create a
            create the symlink
 EOF
 command :new do |c|
-  c.action do |_global_options, _options, _args|
-    running?
+  c.action do |global_options, _options, _args|
+    running?(global_options)
     if File.exist?(SYMLINK) || !File.symlink?(SYMLINK)
       $stderr.puts "Please use '--force' to force delete current image!"
       exit 1
@@ -109,8 +135,8 @@ end
 desc 'Link to "image"'
 arg 'image'
 command :use do |c|
-  c.action do |_global_options, _options, args|
-    running?
+  c.action do |global_options, _options, args|
+    running?(global_options)
     file = "#{SYMLINK}.#{args[0]}"
     File.exist?(file) or raise "Image #{file} does not exist"
 
