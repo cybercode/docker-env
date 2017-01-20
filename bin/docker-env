@@ -21,9 +21,12 @@ switch [:v, :verbose], desc: 'be more verbose'
 switch [:k, :kill], desc: 'quit docker if it is running'
 switch [:r, :restart], desc: 'stop and start docker around command'
 
+def name(f, options)
+  options[:verbose] ? f : f.sub(/^.+Docker\.qcow2\./, '')
+end
+
 def current(options)
-  f = File.readlink(SYMLINK)
-  options[:verbose] ? f : f.split('.').last
+  name(File.readlink(SYMLINK), options)
 end
 
 def tell_docker(what, options)
@@ -80,7 +83,7 @@ command [:list, :ls] do |c|
   c.action do |global_options, _options, _args|
     cur = current(global_options)
     puts Dir.glob("#{SYMLINK}.*").map { |f|
-      img = f.split('.').last
+      img = name(f, global_options)
       sprintf '%-2s%s', img == cur ? '*' : '', img
     }
   end
