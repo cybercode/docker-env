@@ -17,9 +17,9 @@ subcommand_option_handling :normal
 arguments :strict
 wrap_help_text :verbatim
 
-switch [:v, :verbose], desc: 'be more verbose'
-switch [:k, :kill], desc: 'quit docker if it is running'
-switch [:r, :restart], desc: 'stop and start docker around command'
+switch %i[v verbose], desc: 'be more verbose'
+switch %i[k kill], desc: 'quit docker if it is running'
+switch %i[r restart], desc: 'stop and start docker around command'
 
 def name(f, options)
   options[:verbose] ? f : f.sub(/^.+Docker\.qcow2\./, '')
@@ -30,7 +30,8 @@ def current(options)
 end
 
 def tell_docker(what, options)
-  cmd = %[osascript -e 'tell application "Docker" to #{what}']
+  # wrap in try because "open" generated an error which we can ignore
+  cmd = %[osascript -e 'try\ntell application "Docker" to #{what}\nend try']
   $stderr.puts cmd if options[:verbose]
   system(cmd)
 end
@@ -44,7 +45,7 @@ def running?(options)
   tell_docker('quit', options) if active && (options[:kill] || options[:restart])
 
   # wait for docker to quit
-  while check_running do
+  while check_running
     $stderr.putc '.' if options[:verbose]
     sleep 1
   end
@@ -57,7 +58,7 @@ def running?(options)
 end
 
 post do |global_options, _command, _options, _args|
-  tell_docker('activate', global_options) if global_options[:restart]
+  tell_docker('open', global_options) if global_options[:restart]
 end
 
 desc 'setup by moving Docker.qcow2 to "image_name" and linking back'
