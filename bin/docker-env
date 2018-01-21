@@ -101,6 +101,11 @@ command :init do |c|
   end
 end
 
+desc 'Print path to disk imae directory'
+command [:dir, :directory] do |c|
+  c.action { puts DIR }
+end
+
 desc 'list available disk images (.../Docker.(qcow2|raw).{name})'
 command [:list, :ls] do |c|
   c.action do |global_options, _options, _args|
