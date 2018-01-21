@@ -22,10 +22,10 @@ switch %i[k kill], desc: 'quit docker if it is running'
 switch %i[r restart], desc: 'stop and start docker around command'
 
 def symlink
-  n = File.join(DIR, RNAME);
+  n = File.join(DIR, QNAME);
   return n if File.exist?(n)
 
-  return File.join(DIR, QNAME);
+  return File.join(DIR, RNAME);
 end
 
 def name(f, options)
@@ -161,6 +161,7 @@ command :rm do |c|
       exit 1
     end
 
+    $stderr.puts "Removing #{file} to ${link}" if global_options[:verbose]
     File.unlink(file)
   end
 end
@@ -179,8 +180,9 @@ command :use do |c|
     rescue Errno::ENOENT # rubocop:disable Lint/HandleExceptions
     end
 
-    link = File.basename(file, ".#{ext}")
-    File.symlink(file, link)
+        $stderr.puts "Linking #{file} to #{symlink}" if global_options[:verbose]
+
+    File.symlink(file, symlink)
   end
 end
 
