@@ -9,7 +9,7 @@
 ```
 
 = VERSION
-    0.1.0
+    3.0.0
 
 = GLOBAL OPTIONS
 
@@ -37,3 +37,8 @@ create a new empty image file. The (slightly long) steps to follow:
    3. Restart Docker.app
    4. Stop Docker.app
    5. Run `docker-env init {name}` to name the new image and create the symlink
+
+= NOTES ON 3.0.0
+
+3.0.0 remove support for qcow images and uses the latest docker directory layout, 
+the image (`Docker.raw`) is now in `~/Library/COntainers/com.docker.docker/Data/vms/0/data` instead of `~/Library/COntainers/com.docker.docker/Data/com.docker.driver.amd64-linux`.

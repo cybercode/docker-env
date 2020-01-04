@@ -5,12 +5,11 @@ require 'version'
 include GLI::App
 
 DIR = File.expand_path(
-  '~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux'
+  '~/Library/Containers/com.docker.docker/Data/vms/0/data'
 ).freeze
-QNAME    = 'Docker.qcow2'.freeze
 RNAME    = 'Docker.raw'.freeze
 
-program_desc 'Manage docker for mac qcow images'
+program_desc 'Manage docker for mac raw images'
 version Version.current(File.dirname(__FILE__))
 
 subcommand_option_handling :normal
@@ -22,14 +21,11 @@ switch %i[k kill], desc: 'quit docker if it is running'
 switch %i[r restart], desc: 'stop and start docker around command'
 
 def symlink
-  n = File.join(DIR, QNAME);
-  return n if File.exist?(n)
-
   return File.join(DIR, RNAME);
 end
 
 def name(f, options)
-  options[:verbose] ? f : f.sub(/^.+Docker\.(qcow2|raw)\./, '')
+  options[:verbose] ? f : File.basename(f)
 end
 
 def readlink
@@ -77,7 +73,7 @@ post do |global_options, _command, _options, _args|
   tell_docker('open', global_options) if global_options[:restart]
 end
 
-desc 'setup by moving Docker.{qcow2,raw} to "image_name" and linking back (FORCES RESTART)'
+desc 'setup by moving Docker.raw to "image_name" and linking back (FORCES RESTART)'
 arg 'image_name'
 command :init do |c|
   c.action do |global_options, _options, args|
@@ -106,13 +102,12 @@ command [:dir, :directory] do |c|
   c.action { puts DIR }
 end
 
-desc 'list available disk images (.../Docker.(qcow2|raw).{name})'
+desc 'list available disk images (.../Docker.raw.{name})'
 command [:list, :ls] do |c|
   c.action do |global_options, _options, _args|
     cur = current(global_options)
     # only list images of base type...
-    ext = File.extname(symlink)
-    puts Dir.glob("#{DIR}/Docker#{ext}.*").map { |f|
+    puts Dir.glob("#{DIR}/Docker.raw.*").map { |f|
       img = name(f, global_options)
       sprintf '%-2s%s', img == cur ? '*' : '', img
     }
@@ -172,7 +167,7 @@ command :use do |c|
   c.action do |global_options, _options, args|
     running?(global_options)
     ext = args[0]
-    file = Dir.glob("#{DIR}/Docker.*.#{ext}")[0]
+    file = Dir.glob("#{DIR}/Docker.raw.#{ext}")[0]
     File.exist?(file) or raise "Image #{file} does not exist"
 
     begin
